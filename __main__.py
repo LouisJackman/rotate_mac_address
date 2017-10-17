@@ -204,8 +204,8 @@ def main() -> None:
             maximum_error_count=DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS)
     except KeyboardInterrupt as e:
         print('Keyboard interrupt caught; finished cycling MAC addresses.')
-    #except Exception as e:
-        #print('An error occured: ' + str(e))
+    except Exception as e:
+        print('An error occured: ' + str(e))
 
 
 if __name__ == '__main__':
