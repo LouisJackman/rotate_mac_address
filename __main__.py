@@ -2,27 +2,28 @@
 
 """
 Rotate MAC addresses on a specified interval, with a bit of variation added.
-Requires superuser privileges and the `ip` commmand, which is standard on modern
-Linux.
+Requires superuser privileges. Supports macOS and Linux.
 """
 
 from argparse import ArgumentParser
 from functools import partial
 from inspect import getdoc
 from operator import ne
+from shutil import which
+
+import functools
 import os
 import random
 import re
-from shutil import which
-import sys
 import subprocess
+import sys
 import time
 
 
 DESCRIPTION = getdoc(sys.modules[__name__])
 
 DEFAULTS = dict(
-    device_name=eth0,
+    device_name='eth0',
     cycle_seconds=30 * 60,
     cycle_variance=0.25,
     maximum_mac_address_randomisation_sequential_errors=3)
@@ -33,6 +34,10 @@ VENDORS = dict(
     foxconn='00:01:6c',
     cisco='00:10:29',
     amd='00:0c:87')
+
+
+def make_function(f):
+    return functools.update_wrapper(f(), f)
 
 
 def underscored_to_capitalised(string):
@@ -65,20 +70,39 @@ def get_program_path(program):
     return path
 
 
-def set_device_mac_address(device_name, address):
-    ip_command = get_program_path('ip')
+@make_function
+def set_device_mac_address():
 
-    output = subprocess.check_output((
-        ip_command,
-        "link",
-        "set",
-        "dev",
-        device_name,
-        "addr",
-        address))
+    def mac_os(device_name, address):
+        ifconfig_command = get_program_path('ifconfig')
 
-    if 0 < len(output):
-        print(output.decode())
+        output = subprocess.check_output((
+            'ifconfig',
+            device_name,
+            'ether',
+            address))
+
+        if 0 < len(output):
+            print(output.decode())
+
+    def linux(device_name, address):
+        ip_command = get_program_path('ip')
+
+        output = subprocess.check_output((
+            ip_command,
+            "link",
+            "set",
+            "dev",
+            device_name,
+            "addr",
+            address))
+
+        if 0 < len(output):
+            print(output.decode())
+
+    # `ifconfig` works on many Unix-like platforms apart from macOS, so use it
+    # for all non-Linux systems.
+    return linux if sys.platform == 'linux' else mac_os
 
 
 def make_random_mac_address_section():
