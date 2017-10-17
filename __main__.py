@@ -10,6 +10,7 @@ from functools import partial
 from inspect import getdoc
 from operator import ne
 from shutil import which
+from typing import Callable, List, Tuple
 
 import functools
 import os
@@ -22,11 +23,10 @@ import time
 
 DESCRIPTION = getdoc(sys.modules[__name__])
 
-DEFAULTS = dict(
-    device_name='eth0',
-    cycle_seconds=30 * 60,
-    cycle_variance=0.25,
-    maximum_mac_address_randomisation_sequential_errors=3)
+DEFAULT_DEVICE_NAME = 'eth0'
+DEFAULT_CYCLE_SECONDS = 30 * 60
+DEFAULT_CYCLE_VARIANCE = 0.25
+DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS = 3
 
 VENDORS = dict(
     intel='00:1b:77',
@@ -40,38 +40,46 @@ def make_function(f):
     return functools.update_wrapper(f(), f)
 
 
-def underscored_to_capitalised(string):
+def underscored_to_capitalised(string: str) -> str:
     first = string[0].upper() if 0 < len(string) else ''
+
+    def replace(x):
+        return ' ' + x.group(1).upper()
 
     rest = re.sub(
         '_(\w)',
-        lambda x: ' ' + next(filter(partial(ne, None), x.groups())).upper(),
+        replace,
         string[1:] if 0 < len(string) else '')
 
     return first + rest
+
 
 def make_mapping(f, xs):
     return {x: f(x) for x in xs}
 
 
 vendor_names = make_mapping(underscored_to_capitalised, VENDORS.keys())
-choose_vendor = partial(random.choice, tuple(VENDORS.items()))
+
+
+def choose_vendor() -> Tuple[str, str]:
+    items = tuple(VENDORS.items())
+    return random.choice(items)
 
 
 class MissingProgramError(RuntimeError):
     pass
 
 
-def get_program_path(program):
+def get_program_path(program: str) -> str:
     path = which(program)
     if path is None:
         raise MissingProgramError('the {} program was not found'.format(
-            command))
+            program))
     return path
 
 
 @make_function
-def set_device_mac_address():
+def set_device_mac_address() -> Callable[[str, str], None]:
 
     def mac_os(device_name, address):
         ifconfig_command = get_program_path('ifconfig')
@@ -105,11 +113,11 @@ def set_device_mac_address():
     return linux if sys.platform == 'linux' else mac_os
 
 
-def make_random_mac_address_section():
+def make_random_mac_address_section() -> str:
     return '{}{}'.format(random.randint(1, 9), random.randint(1, 9))
 
 
-def make_random_mac_address():
+def make_random_mac_address() -> Tuple[str, str]:
     vendor, prefix = choose_vendor()
     address = '{}:{}:{}:{}'.format(
         prefix,
@@ -117,12 +125,12 @@ def make_random_mac_address():
     return vendor, address
 
 
-def variate(seconds, variance):
+def variate(seconds: int, variance: float) -> float:
     delta = (random.random() - 0.5) * variance
     return seconds + (seconds * delta)
 
 
-def generate_mac_addresses(device_name, cycle_seconds):
+def generate_mac_addresses(device_name: str, cycle_seconds: int):
     set_mac_address = partial(set_device_mac_address, device_name)
 
     while True:
@@ -132,15 +140,15 @@ def generate_mac_addresses(device_name, cycle_seconds):
             yield 'ok', vendor, address
         except subprocess.CalledProcessError as e:
             yield 'error', e
-        time.sleep(variate(cycle_seconds, DEFAULTS['cycle_variance']))
+        time.sleep(variate(cycle_seconds, DEFAULT_CYCLE_VARIANCE))
 
 
 class TooManyMacAddressChangeErrorsError(RuntimeError):
     pass
 
 
-def run_main_loop(mac_addresses, maximum_error_count):
-    errors = []
+def run_main_loop(mac_addresses, maximum_error_count: int):
+    errors: List[Exception] = []
     for message in mac_addresses:
         status, *data = message
 
@@ -171,17 +179,17 @@ def run_main_loop(mac_addresses, maximum_error_count):
 
 def parse_arguments():
     parser = ArgumentParser(description=DESCRIPTION)
-    parser.add_argument('--device-name', default=DEFAULTS['device_name'])
+    parser.add_argument('--device-name', default=DEFAULT_DEVICE_NAME)
 
     parser.add_argument(
             '--cycle-seconds',
             type=int,
-            default=DEFAULTS['cycle_seconds'])
+            default=DEFAULT_CYCLE_SECONDS)
 
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     print('Rotating MAC address...')
 
     arguments = parse_arguments()
@@ -193,12 +201,11 @@ def main():
     try:
         run_main_loop(
             mac_addresses,
-            maximum_error_count=DEFAULTS[
-                'maximum_mac_address_randomisation_sequential_errors'])
+            maximum_error_count=DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS)
     except KeyboardInterrupt as e:
         print('Keyboard interrupt caught; finished cycling MAC addresses.')
-    except Exception as e:
-        print('An error occured: ' + str(e))
+    #except Exception as e:
+        #print('An error occured: ' + str(e))
 
 
 if __name__ == '__main__':
