@@ -6,19 +6,16 @@ Requires superuser privileges. Supports macOS and Linux.
 """
 
 from argparse import ArgumentParser
+import functools
 from functools import partial
 from inspect import getdoc
-from operator import ne
-from shutil import which
-from typing import Callable, List, Tuple
-
-import functools
-import os
 import random
 import re
 import subprocess
+from shutil import which
 import sys
 import time
+from typing import Callable, List, Tuple
 
 
 DESCRIPTION = getdoc(sys.modules[__name__])
@@ -33,7 +30,8 @@ VENDORS = dict(
     hewlett_packard='00:1b:78',
     foxconn='00:01:6c',
     cisco='00:10:29',
-    amd='00:0c:87')
+    amd='00:0c:87'
+)
 
 
 def make_function(f):
@@ -41,15 +39,16 @@ def make_function(f):
 
 
 def underscored_to_capitalised(string: str) -> str:
-    first = string[0].upper() if 0 < len(string) else ''
+    first = string[0].upper() if string else ''
 
     def replace(x):
         return ' ' + x.group(1).upper()
 
     rest = re.sub(
-        '_(\w)',
+        r'_(\w)',
         replace,
-        string[1:] if 0 < len(string) else '')
+        string[1:] if string else ''
+    )
 
     return first + rest
 
@@ -74,23 +73,25 @@ def get_program_path(program: str) -> str:
     path = which(program)
     if path is None:
         raise MissingProgramError('the {} program was not found'.format(
-            program))
+            program
+        ))
     return path
 
 
 @make_function
 def set_device_mac_address() -> Callable[[str, str], None]:
 
-    def mac_os(device_name, address):
+    def unix(device_name, address):
         ifconfig_command = get_program_path('ifconfig')
 
         output = subprocess.check_output((
-            'ifconfig',
+            ifconfig_command,
             device_name,
             'ether',
-            address))
+            address
+        ))
 
-        if 0 < len(output):
+        if output:
             print(output.decode())
 
     def linux(device_name, address):
@@ -103,14 +104,13 @@ def set_device_mac_address() -> Callable[[str, str], None]:
             "dev",
             device_name,
             "addr",
-            address))
+            address
+        ))
 
-        if 0 < len(output):
+        if output:
             print(output.decode())
 
-    # `ifconfig` works on many Unix-like platforms apart from macOS, so use it
-    # for all non-Linux systems.
-    return linux if sys.platform == 'linux' else mac_os
+    return linux if sys.platform == 'linux' else unix
 
 
 def make_random_mac_address_section() -> str:
@@ -121,7 +121,8 @@ def make_random_mac_address() -> Tuple[str, str]:
     vendor, prefix = choose_vendor()
     address = '{}:{}:{}:{}'.format(
         prefix,
-        *(make_random_mac_address_section() for _ in range(3)))
+        *(make_random_mac_address_section() for _ in range(3))
+    )
     return vendor, address
 
 
@@ -138,8 +139,8 @@ def generate_mac_addresses(device_name: str, cycle_seconds: int):
         try:
             set_mac_address(address)
             yield 'ok', vendor, address
-        except subprocess.CalledProcessError as e:
-            yield 'error', e
+        except subprocess.CalledProcessError as error:
+            yield 'error', error
         time.sleep(variate(cycle_seconds, DEFAULT_CYCLE_VARIANCE))
 
 
@@ -158,7 +159,8 @@ def run_main_loop(mac_addresses, maximum_error_count: int):
             errors.clear()
             print('Set to MAC address {} of vendor {}.'.format(
                 mac_address,
-                vendor_names[vendor]))
+                vendor_names[vendor]
+            ))
 
         elif status == 'error':
             (error,) = data
@@ -166,10 +168,12 @@ def run_main_loop(mac_addresses, maximum_error_count: int):
             print(
                 'An error occured; the program will stop if {} more '
                 'occur sequentially.'.format(
-                    3 - len(errors)))
+                    maximum_error_count - len(errors)
+                )
+            )
 
             errors.append(error)
-            if 3 <= len(errors):
+            if maximum_error_count <= len(errors):
                 msg = '\n'.join(map(str, errors))
                 raise TooManyMacAddressChangeErrorsError(msg)
 
@@ -182,9 +186,10 @@ def parse_arguments():
     parser.add_argument('--device-name', default=DEFAULT_DEVICE_NAME)
 
     parser.add_argument(
-            '--cycle-seconds',
-            type=int,
-            default=DEFAULT_CYCLE_SECONDS)
+        '--cycle-seconds',
+        type=int,
+        default=DEFAULT_CYCLE_SECONDS
+    )
 
     return parser.parse_args()
 
@@ -196,17 +201,20 @@ def main() -> None:
 
     mac_addresses = generate_mac_addresses(
         arguments.device_name,
-        arguments.cycle_seconds)
+        arguments.cycle_seconds
+    )
 
     try:
         run_main_loop(
             mac_addresses,
-            maximum_error_count=DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS)
-    except KeyboardInterrupt as e:
+            maximum_error_count=DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS
+        )
+    except KeyboardInterrupt as _:
         print('Keyboard interrupt caught; finished cycling MAC addresses.')
-    except Exception as e:
-        print('An error occured: ' + str(e))
+    except Exception as exception:
+        print('An error occured: ' + str(exception))
 
 
 if __name__ == '__main__':
     main()
+
