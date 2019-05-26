@@ -20,17 +20,17 @@ from typing import Callable, List, Tuple
 
 DESCRIPTION = getdoc(sys.modules[__name__])
 
-DEFAULT_DEVICE_NAME = 'eth0'
+DEFAULT_DEVICE_NAME = "eth0"
 DEFAULT_CYCLE_SECONDS = 30 * 60
 DEFAULT_CYCLE_VARIANCE = 0.25
 DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS = 3
 
 VENDORS = dict(
-    intel='00:1b:77',
-    hewlett_packard='00:1b:78',
-    foxconn='00:01:6c',
-    cisco='00:10:29',
-    amd='00:0c:87'
+    intel="00:1b:77",
+    hewlett_packard="00:1b:78",
+    foxconn="00:01:6c",
+    cisco="00:10:29",
+    amd="00:0c:87",
 )
 
 
@@ -39,16 +39,12 @@ def make_function(f):
 
 
 def underscored_to_capitalised(string: str) -> str:
-    first = string[0].upper() if string else ''
+    first = string[0].upper() if string else ""
 
     def replace(x):
-        return ' ' + x.group(1).upper()
+        return " " + x.group(1).upper()
 
-    rest = re.sub(
-        r'_(\w)',
-        replace,
-        string[1:] if string else ''
-    )
+    rest = re.sub(r"_(\w)", replace, string[1:] if string else "")
 
     return first + rest
 
@@ -72,56 +68,43 @@ class MissingProgramError(RuntimeError):
 def get_program_path(program: str) -> str:
     path = which(program)
     if path is None:
-        raise MissingProgramError('the {} program was not found'.format(
-            program
-        ))
+        raise MissingProgramError("the {} program was not found".format(program))
     return path
 
 
 @make_function
 def set_device_mac_address() -> Callable[[str, str], None]:
-
     def unix(device_name, address):
-        ifconfig_command = get_program_path('ifconfig')
+        ifconfig_command = get_program_path("ifconfig")
 
-        output = subprocess.check_output((
-            ifconfig_command,
-            device_name,
-            'ether',
-            address
-        ))
+        output = subprocess.check_output(
+            (ifconfig_command, device_name, "ether", address)
+        )
 
         if output:
             print(output.decode())
 
     def linux(device_name, address):
-        ip_command = get_program_path('ip')
+        ip_command = get_program_path("ip")
 
-        output = subprocess.check_output((
-            ip_command,
-            "link",
-            "set",
-            "dev",
-            device_name,
-            "addr",
-            address
-        ))
+        output = subprocess.check_output(
+            (ip_command, "link", "set", "dev", device_name, "addr", address)
+        )
 
         if output:
             print(output.decode())
 
-    return linux if sys.platform == 'linux' else unix
+    return linux if sys.platform == "linux" else unix
 
 
 def make_random_mac_address_section() -> str:
-    return '{}{}'.format(random.randint(1, 9), random.randint(1, 9))
+    return "{}{}".format(random.randint(1, 9), random.randint(1, 9))
 
 
 def make_random_mac_address() -> Tuple[str, str]:
     vendor, prefix = choose_vendor()
-    address = '{}:{}:{}:{}'.format(
-        prefix,
-        *(make_random_mac_address_section() for _ in range(3))
+    address = "{}:{}:{}:{}".format(
+        prefix, *(make_random_mac_address_section() for _ in range(3))
     )
     return vendor, address
 
@@ -138,9 +121,9 @@ def generate_mac_addresses(device_name: str, cycle_seconds: int):
         vendor, address = make_random_mac_address()
         try:
             set_mac_address(address)
-            yield 'ok', vendor, address
+            yield "ok", vendor, address
         except subprocess.CalledProcessError as error:
-            yield 'error', error
+            yield "error", error
         time.sleep(variate(cycle_seconds, DEFAULT_CYCLE_VARIANCE))
 
 
@@ -153,68 +136,61 @@ def run_main_loop(mac_addresses, maximum_error_count: int):
     for message in mac_addresses:
         status, *data = message
 
-        if status == 'ok':
+        if status == "ok":
             vendor, mac_address = data
 
             errors.clear()
-            print('Set to MAC address {} of vendor {}.'.format(
-                mac_address,
-                vendor_names[vendor]
-            ))
+            print(
+                "Set to MAC address {} of vendor {}.".format(
+                    mac_address, vendor_names[vendor]
+                )
+            )
 
-        elif status == 'error':
+        elif status == "error":
             (error,) = data
 
             print(
-                'An error occured; the program will stop if {} more '
-                'occur sequentially.'.format(
-                    maximum_error_count - len(errors)
-                )
+                "An error occured; the program will stop if {} more "
+                "occur sequentially.".format(maximum_error_count - len(errors))
             )
 
             errors.append(error)
             if maximum_error_count <= len(errors):
-                msg = '\n'.join(map(str, errors))
+                msg = "\n".join(map(str, errors))
                 raise TooManyMacAddressChangeErrorsError(msg)
 
         else:
-            raise RuntimeError('unknown status: ' + status)
+            raise RuntimeError("unknown status: " + status)
 
 
 def parse_arguments():
     parser = ArgumentParser(description=DESCRIPTION)
-    parser.add_argument('--device-name', default=DEFAULT_DEVICE_NAME)
+    parser.add_argument("--device-name", default=DEFAULT_DEVICE_NAME)
 
-    parser.add_argument(
-        '--cycle-seconds',
-        type=int,
-        default=DEFAULT_CYCLE_SECONDS
-    )
+    parser.add_argument("--cycle-seconds", type=int, default=DEFAULT_CYCLE_SECONDS)
 
     return parser.parse_args()
 
 
 def main() -> None:
-    print('Rotating MAC address...')
+    print("Rotating MAC address...")
 
     arguments = parse_arguments()
 
     mac_addresses = generate_mac_addresses(
-        arguments.device_name,
-        arguments.cycle_seconds
+        arguments.device_name, arguments.cycle_seconds
     )
 
     try:
         run_main_loop(
             mac_addresses,
-            maximum_error_count=DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS
+            maximum_error_count=DEFAULT_MAXIMUM_MAC_ADDRESS_RANDOMISATION_SEQUENTIAL_ERRORS,
         )
     except KeyboardInterrupt as _:
-        print('Keyboard interrupt caught; finished cycling MAC addresses.')
+        print("Keyboard interrupt caught; finished cycling MAC addresses.")
     except Exception as exception:
-        print('An error occured: ' + str(exception))
+        print("An error occured: " + str(exception))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
