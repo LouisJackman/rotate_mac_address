@@ -6,7 +6,7 @@ Requires superuser privileges. Supports Unix-like OSes like macOS and Linux.
 Pass the `-h` flag to see the available commands.
 
 This repository is hosted [on
-GitLab.com](https://gitlab.com/louis.jackman/rotate_mac_address). If you're
+GitLab.com](https://gitlab.com/louis.jackman/rotate-mac-address). If you're
 seeing this on GitHub, you're on the official GitHub mirror. [Go to
-GitLab](https://gitlab.com/louis.jackman/rotate_mac_address) to contribute.
+GitLab](https://gitlab.com/louis.jackman/rotate-mac-address) to contribute.
 
