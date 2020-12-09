@@ -1,14 +1,17 @@
 # Rotate MAC Addresses
 
-[![pipeline status](https://gitlab.com/louis.jackman/rotate_mac_address/badges/master/pipeline.svg)](https://gitlab.com/louis.jackman/rotate_mac_address/-/commits/master)
+[![pipeline status](https://gitlab.com/louis.jackman/rotate-mac-address/badges/master/pipeline.svg)](https://gitlab.com/louis.jackman/rotate-mac-address/-/commits/master)
 
 Rotate MAC addresses on a specified interval, with a bit of variation added.
 Requires superuser privileges. Supports Unix-like OSes like macOS and Linux.
 
 Pass the `-h` flag to see the available commands.
 
-This repository is hosted [on
-GitLab.com](https://gitlab.com/louis.jackman/rotate-mac-address). If you're
-seeing this on GitHub, you're on the official GitHub mirror. [Go to
-GitLab](https://gitlab.com/louis.jackman/rotate-mac-address) to contribute.
+This repository is currently hosted [on
+GitLab.com](https://gitlab.com/louis.jackman/rotate-mac-address). Official
+mirrors exist on
+[SourceHut](https://git.sr.ht/~louisjackman/rotate-mac-address) and
+[GitHub](https://github.com/LouisJackman/rotate-mac-address). At the moment,
+GitLab is still the official hub for contributions such as PRs and issues.
+
 
